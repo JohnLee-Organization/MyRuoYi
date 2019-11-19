@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<included>
+
+    <!-- Framework level setting -->
+    <include resource="config/logback-framework.xml"/>
+
+	<!-- 系统模块日志级别控制  -->
+	<logger name="com.ruoyi" level="DEBUG" />
+</included>

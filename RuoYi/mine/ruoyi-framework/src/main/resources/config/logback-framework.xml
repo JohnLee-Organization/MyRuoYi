@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<included>
+
+    <!-- Framework level setting -->
+    <include resource="config/logback-system.xml"/>
+
+    <!-- https://github.com/spring-projects/spring-boot/blob/v2.0.5.RELEASE/spring-boot-project/spring-boot/src/main/resources/org/springframework/boot/logging/logback/defaults.xml -->
+    <include resource="org/springframework/boot/logging/logback/defaults.xml" />
+
+    <logger name="org.springframework.boot.web.embedded" level="INFO" />
+    <!--
+    <logger name="net.oschina.j2cache.caffeine.CaffeineProvider" level="ERROR" />
+    -->
+
+    <!-- 	<logger name="org.apache.ibatis" level="DEBUG" /> -->
+    <!-- 	<logger name="org.mybatis.spring" level="DEBUG" /> -->
+    <!-- 	<logger name="org.springframework.jdbc" level="DEBUG" /> -->
+    <logger name="org.mybatis.spring.transaction" level="DEBUG" />
+    <!--
+    <logger name="com.atomikos.icatch.config.UserTransactionServiceImp" level="ERROR" />
+    <logger name="com.atomikos.icatch.provider.imp.AssemblerImp" level="ERROR" />
+    <logger name="com.atomikos.jdbc.AbstractDataSourceBean" level="ERROR" />
+    <logger name="com.atomikos.jdbc.AtomikosConnectionProxy" level="ERROR" />
+    <logger name="com.atomikos.recovery.xa.XaResourceRecoveryManager" level="ERROR" />
+    -->
+    <!-- 	<logger name="org.springframework.transaction.support.TransactionSynchronizationManager" level="TRACE" /> -->
+
+    <logger name="springfox.documentation.spring.web.readers.parameter.ParameterDataTypeReader" level="ERROR" />
+    <!-- 	<logger name="io.swagger" level="DEBUG" /> -->
+    <!-- 	<logger name="springfox" level="DEBUG" /> -->
+
+    <!--
+    <logger name="com.ruoyi.common.cache" level="INFO" />
+    <logger name="com.ruoyi.common.j2cache" level="INFO" />
+    -->
+    <logger name="com.ruoyi.framework.config" level="INFO" />
+    <logger name="com.ruoyi.framework.datasource" level="INFO" />
+    <logger name="com.ruoyi.framework.shiro" level="INFO" />
+</included>

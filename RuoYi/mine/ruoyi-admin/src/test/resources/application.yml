@@ -30,6 +30,7 @@ server:
  
 # 日志配置
 logging:
+  config: classpath:config/logback-test.xml
   level:
     com.ruoyi: debug
     org.springframework: warn
@@ -42,6 +43,15 @@ user:
 
 # Spring配置
 spring:
+  banner:
+    charset: UTF-8
+    location: classpath:config/banner.txt
+    image:
+      location: classpath:config/banner.gif
+      width: 76
+      height:
+      margin: 2
+      invert: false
   # 模板引擎
   thymeleaf:
     mode: HTML

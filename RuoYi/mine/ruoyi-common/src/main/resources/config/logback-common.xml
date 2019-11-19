@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<included>
+    <!--
+    <logger name="com.ruoyi.common.i18n" level="INFO" />
+    <logger name="com.ruoyi.common.cache" level="INFO" />
+    <logger name="com.ruoyi.common.j2cache" level="INFO" />
+    <logger name="com.ruoyi.common.mybatis" level="INFO" />
+    -->
+    <logger name="com.ruoyi.common.utils.reflect.ReflectUtils" level="INFO" />
+    <logger name="com.ruoyi.common.utils.file.FileUtils" level="INFO" />
+</included>

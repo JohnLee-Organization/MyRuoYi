@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<included>
-
-    <!-- Framework level setting -->
-    <include resource="config/logback-common.xml"/>
-
-    <logger name="com.ruoyi.system.mapper" level="DEBUG" />
-</included>

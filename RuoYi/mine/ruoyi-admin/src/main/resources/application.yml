@@ -99,6 +99,8 @@ shiro:
     captchaEnabled: true
     # 验证码类型 math 数组计算 char 字符
     captchaType: math
+    # 放行的 URI 地址
+    passUrls: /swagger**,/swagger-resources/configuration/**,/webjars/**,/v2/api-docs,/open/api/**
   cookie:
     # 设置Cookie的域名 默认空，即当前访问的域名
     domain: 

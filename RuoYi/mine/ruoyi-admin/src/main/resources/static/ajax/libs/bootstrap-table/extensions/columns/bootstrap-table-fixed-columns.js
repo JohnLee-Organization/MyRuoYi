@@ -1,322 +1,404 @@
 /**
- * 基于bootstrap-table-fixed-columns修改
- * 支持左右列冻结、支持固定高度
- * Copyright (c) 2019 ruoyi
+ * @author zhixin wen <wenzhixin2010@gmail.com>
  */
-(function ($) {
-    'use strict';
 
-    $.extend($.fn.bootstrapTable.defaults, {
-        fixedColumns: false,
-        fixedNumber: 1,
-        rightFixedColumns: false,
-        rightFixedNumber: 1
-    });
+const Utils = $.fn.bootstrapTable.utils
 
-    var BootstrapTable = $.fn.bootstrapTable.Constructor,
-        _initHeader = BootstrapTable.prototype.initHeader,
-        _initBody = BootstrapTable.prototype.initBody,
-        _resetView = BootstrapTable.prototype.resetView;
+// Reasonable defaults
+const PIXEL_STEP = 10
+const LINE_HEIGHT = 40
+const PAGE_HEIGHT = 800
 
-    BootstrapTable.prototype.initFixedColumns = function () {
-        this.timeoutHeaderColumns_ = 0;
-        this.timeoutBodyColumns_ = 0;
-        if (this.options.fixedColumns) {
-            this.$fixedHeader = $([
-                '<div class="left-fixed-table-columns">',
-                '<table>',
-                '<thead></thead>',
-                '</table>',
-                '</div>'].join(''));
-            
-            this.$fixedHeader.find('table').attr('class', this.$el.attr('class'));
-            this.$fixedHeaderColumns = this.$fixedHeader.find('thead');
-            this.$tableHeader.before(this.$fixedHeader);
+function normalizeWheel (event) {
+  let sX = 0 // spinX
+  let sY = 0 // spinY
+  let pX = 0 // pixelX
+  let pY = 0 // pixelY
 
-            this.$fixedBody = $([
-                '<div class="left-fixed-body-columns">',
-                '<table>',
-                '<tbody></tbody>',
-                '</table>',
-                '</div>'].join(''));
+  // Legacy
+  if ('detail' in event) { sY = event.detail }
+  if ('wheelDelta' in event) { sY = -event.wheelDelta / 120 }
+  if ('wheelDeltaY' in event) { sY = -event.wheelDeltaY / 120 }
+  if ('wheelDeltaX' in event) { sX = -event.wheelDeltaX / 120 }
 
-            this.$fixedBody.find('table').attr('class', this.$el.attr('class'));
-            this.$fixedBodyColumns = this.$fixedBody.find('tbody');
-            this.$tableBody.before(this.$fixedBody);
+  // side scrolling on FF with DOMMouseScroll
+  if ('axis' in event && event.axis === event.HORIZONTAL_AXIS) {
+    sX = sY
+    sY = 0
+  }
+
+  pX = sX * PIXEL_STEP
+  pY = sY * PIXEL_STEP
+
+  if ('deltaY' in event) { pY = event.deltaY }
+  if ('deltaX' in event) { pX = event.deltaX }
+
+  if ((pX || pY) && event.deltaMode) {
+    if (event.deltaMode === 1) { // delta in LINE units
+      pX *= LINE_HEIGHT
+      pY *= LINE_HEIGHT
+    } else { // delta in PAGE units
+      pX *= PAGE_HEIGHT
+      pY *= PAGE_HEIGHT
+    }
+  }
+
+  // Fall-back if spin cannot be determined
+  if (pX && !sX) { sX = (pX < 1) ? -1 : 1 }
+  if (pY && !sY) { sY = (pY < 1) ? -1 : 1 }
+
+  return {
+    spinX: sX,
+    spinY: sY,
+    pixelX: pX,
+    pixelY: pY
+  }
+}
+
+$.extend($.fn.bootstrapTable.defaults, {
+  fixedColumns: false,
+  fixedNumber: 0,
+  fixedRightNumber: 0
+})
+
+$.BootstrapTable = class extends $.BootstrapTable {
+
+  fixedColumnsSupported () {
+    return this.options.fixedColumns &&
+      !this.options.detailView &&
+      !this.options.cardView
+  }
+
+  initContainer () {
+    super.initContainer()
+
+    if (!this.fixedColumnsSupported()) {
+      return
+    }
+
+    if (this.options.fixedNumber) {
+      this.$tableContainer.append('<div class="fixed-columns"></div>')
+      this.$fixedColumns = this.$tableContainer.find('.fixed-columns')
+    }
+
+    if (this.options.fixedRightNumber) {
+      this.$tableContainer.append('<div class="fixed-columns-right"></div>')
+      this.$fixedColumnsRight = this.$tableContainer.find('.fixed-columns-right')
+    }
+  }
+
+  initBody (...args) {
+    super.initBody(...args)
+
+    if (this.$fixedColumns && this.$fixedColumns.length) {
+      this.$fixedColumns.toggle(this.fixedColumnsSupported())
+    }
+    if (this.$fixedColumnsRight && this.$fixedColumnsRight.length) {
+      this.$fixedColumnsRight.toggle(this.fixedColumnsSupported())
+    }
+
+    if (!this.fixedColumnsSupported()) {
+      return
+    }
+
+    if (this.options.showHeader && this.options.height) {
+      return
+    }
+
+    this.initFixedColumnsBody()
+    this.initFixedColumnsEvents()
+  }
+
+  trigger (...args) {
+    super.trigger(...args)
+
+    if (!this.fixedColumnsSupported()) {
+      return
+    }
+
+    if (args[0] === 'post-header') {
+      this.initFixedColumnsHeader()
+    } else if (args[0] === 'scroll-body') {
+      if (this.needFixedColumns && this.options.fixedNumber) {
+        this.$fixedBody.scrollTop(this.$tableBody.scrollTop())
+      }
+
+      if (this.needFixedColumns && this.options.fixedRightNumber) {
+        this.$fixedBodyRight.scrollTop(this.$tableBody.scrollTop())
+      }
+    }
+  }
+
+  updateSelected () {
+    super.updateSelected()
+
+    if (!this.fixedColumnsSupported()) {
+      return
+    }
+
+    this.$tableBody.find('tr').each((i, el) => {
+      const $el = $(el)
+      const index = $el.data('index')
+      const classes = $el.attr('class')
+
+      const inputSelector = `[name="${this.options.selectItemName}"]`
+      const $input = $el.find(inputSelector)
+
+      if (typeof index === undefined) {
+        return
+      }
+
+      const updateFixedBody = ($fixedHeader, $fixedBody) => {
+        const $tr = $fixedBody.find(`tr[data-index="${index}"]`)
+
+        $tr.attr('class', classes)
+
+        if ($input.length) {
+          $tr.find(inputSelector).prop('checked', $input.prop('checked'))
         }
-        if (this.options.rightFixedColumns) {
-            this.$rightfixedBody = $([
-                '<div class="right-fixed-table-columns">',
-                '<table>',
-                '<thead></thead>',
-                '<tbody style="background-color: #fff;"></tbody>',
-                '</table>',
-                '</div>'].join(''));
-            this.$rightfixedBody.find('table').attr('class', this.$el.attr('class'));
-            this.$rightfixedHeaderColumns = this.$rightfixedBody.find('thead');
-            this.$rightfixedBodyColumns = this.$rightfixedBody.find('tbody');
-            this.$tableBody.before(this.$rightfixedBody);
-            if (this.options.fixedColumns) {
-                $('.right-fixed-table-columns').attr('style','right:0px');
-            }
+
+        if (this.$selectAll.length) {
+          $fixedHeader.add($fixedBody)
+            .find('[name="btSelectAll"]')
+            .prop('checked', this.$selectAll.prop('checked'))
         }
-    };
+      }
 
-    BootstrapTable.prototype.initHeader = function () {
-        _initHeader.apply(this, Array.prototype.slice.apply(arguments));
+      if (this.$fixedBody && this.options.fixedNumber) {
+        updateFixedBody(this.$fixedHeader, this.$fixedBody)
+      }
 
-        if (!this.options.fixedColumns && !this.options.rightFixedColumns){
-            return;
+      if (this.$fixedBodyRight && this.options.fixedRightNumber) {
+        updateFixedBody(this.$fixedHeaderRight, this.$fixedBodyRight)
+      }
+    })
+  }
+
+  hideLoading () {
+    super.hideLoading()
+
+    if (this.needFixedColumns && this.options.fixedNumber) {
+      this.$fixedColumns.find('.fixed-table-loading').hide()
+    }
+
+    if (this.needFixedColumns && this.options.fixedRightNumber) {
+      this.$fixedColumnsRight.find('.fixed-table-loading').hide()
+    }
+  }
+
+  initFixedColumnsHeader () {
+    if (this.options.height) {
+      this.needFixedColumns = this.$tableHeader.outerWidth(true) < this.$tableHeader.find('table').outerWidth(true)
+    } else {
+      this.needFixedColumns = this.$tableBody.outerWidth(true) < this.$tableBody.find('table').outerWidth(true)
+    }
+
+    const initFixedHeader = ($fixedColumns, isRight) => {
+      $fixedColumns.find('.fixed-table-header').remove()
+      $fixedColumns.append(this.$tableHeader.clone(true))
+
+      $fixedColumns.css({
+        width: this.getFixedColumnsWidth(isRight)
+      })
+      return $fixedColumns.find('.fixed-table-header')
+    }
+
+    if (this.needFixedColumns && this.options.fixedNumber) {
+      this.$fixedHeader = initFixedHeader(this.$fixedColumns)
+      this.$fixedHeader.css('margin-right', '')
+    } else if (this.$fixedColumns) {
+      this.$fixedColumns.html('').css('width', '')
+    }
+
+    if (this.needFixedColumns && this.options.fixedRightNumber) {
+      this.$fixedHeaderRight = initFixedHeader(this.$fixedColumnsRight, true)
+      this.$fixedHeaderRight.scrollLeft(this.$fixedHeaderRight.find('table').width())
+    } else if (this.$fixedColumnsRight) {
+      this.$fixedColumnsRight.html('').css('width', '')
+    }
+
+    this.initFixedColumnsBody()
+    this.initFixedColumnsEvents()
+  }
+
+  initFixedColumnsBody () {
+    const initFixedBody = ($fixedColumns, $fixedHeader) => {
+      $fixedColumns.find('.fixed-table-body').remove()
+      $fixedColumns.append(this.$tableBody.clone(true))
+
+      const $fixedBody = $fixedColumns.find('.fixed-table-body')
+
+      const tableBody = this.$tableBody.get(0)
+      const scrollHeight = tableBody.scrollWidth > tableBody.clientWidth ?
+        Utils.getScrollBarWidth() : 0
+      const height = this.$tableContainer.outerHeight(true) - scrollHeight - 1
+
+      $fixedColumns.css({
+        height
+      })
+
+      $fixedBody.css({
+        height: height - $fixedHeader.height()
+      })
+
+      return $fixedBody
+    }
+
+    if (this.needFixedColumns && this.options.fixedNumber) {
+      this.$fixedBody = initFixedBody(this.$fixedColumns, this.$fixedHeader)
+    }
+
+    if (this.needFixedColumns && this.options.fixedRightNumber) {
+      this.$fixedBodyRight = initFixedBody(this.$fixedColumnsRight, this.$fixedHeaderRight)
+      this.$fixedBodyRight.scrollLeft(this.$fixedBodyRight.find('table').width())
+      this.$fixedBodyRight.css('overflow-y', this.options.height ? 'auto' : 'hidden')
+    }
+  }
+
+  getFixedColumnsWidth (isRight) {
+    let visibleFields = this.getVisibleFields()
+    let width = 0
+    let fixedNumber = this.options.fixedNumber
+    let marginRight = 0
+
+    if (isRight) {
+      visibleFields = visibleFields.reverse()
+      fixedNumber = this.options.fixedRightNumber
+      marginRight = parseInt(this.$tableHeader.css('margin-right'), 10)
+    }
+
+    for (let i = 0; i < fixedNumber; i++) {
+      width += this.$header.find(`th[data-field="${visibleFields[i]}"]`).outerWidth(true)
+    }
+
+    return width + marginRight + 1
+  }
+
+  initFixedColumnsEvents () {
+    const toggleHover = (e, toggle) => {
+      const tr = `tr[data-index="${$(e.currentTarget).data('index')}"]`
+      let $trs = this.$tableBody.find(tr)
+
+      if (this.$fixedBody) {
+        $trs = $trs.add(this.$fixedBody.find(tr))
+      }
+      if (this.$fixedBodyRight) {
+        $trs = $trs.add(this.$fixedBodyRight.find(tr))
+      }
+
+      $trs.css('background-color', toggle ? $(e.currentTarget).css('background-color') : '')
+    }
+
+    this.$tableBody.find('tr').hover(e => {
+      toggleHover(e, true)
+    }, e => {
+      toggleHover(e, false)
+    })
+
+    const isFirefox = typeof navigator !== 'undefined' &&
+      navigator.userAgent.toLowerCase().indexOf('firefox') > -1
+    const mousewheel = isFirefox ? 'DOMMouseScroll' : 'mousewheel'
+    const updateScroll = (e, fixedBody) => {
+      const normalized = normalizeWheel(e)
+      const deltaY = Math.ceil(normalized.pixelY)
+      const top = this.$tableBody.scrollTop() + deltaY
+
+      if (
+        deltaY < 0 && top > 0 ||
+        deltaY > 0 && top < fixedBody.scrollHeight - fixedBody.clientHeight
+      ) {
+        e.preventDefault()
+      }
+
+      this.$tableBody.scrollTop(top)
+      if (this.$fixedBody) {
+        this.$fixedBody.scrollTop(top)
+      }
+      if (this.$fixedBodyRight) {
+        this.$fixedBodyRight.scrollTop(top)
+      }
+    }
+
+    if (this.needFixedColumns && this.options.fixedNumber) {
+      this.$fixedBody.find('tr').hover(e => {
+        toggleHover(e, true)
+      }, e => {
+        toggleHover(e, false)
+      })
+
+      this.$fixedBody[0].addEventListener(mousewheel, e => {
+        updateScroll(e, this.$fixedBody[0])
+      })
+    }
+
+    if (this.needFixedColumns && this.options.fixedRightNumber) {
+      this.$fixedBodyRight.find('tr').hover(e => {
+        toggleHover(e, true)
+      }, e => {
+        toggleHover(e, false)
+      })
+
+      this.$fixedBodyRight.off('scroll').on('scroll', () => {
+        const top = this.$fixedBodyRight.scrollTop()
+
+        this.$tableBody.scrollTop(top)
+        if (this.$fixedBody) {
+          this.$fixedBody.scrollTop(top)
         }
-        this.initFixedColumns();
+      })
+    }
 
-        var $ltr = this.$header.find('tr:eq(0)').clone(true),
-            $rtr = this.$header.find('tr:eq(0)').clone(),
-            $lths = $ltr.clone(true).find('th'),
-            $rths = $rtr.clone().find('th');
+    if (this.options.filterControl) {
+      $(this.$fixedColumns).off('keyup change').on('keyup change', e => {
+        const $target = $(e.target)
+        const value = $target.val()
+        const field = $target.parents('th').data('field')
+        const $coreTh = this.$header.find(`th[data-field="${field}"]`)
 
-        $ltr.html('');
-        $rtr.html('');
-        //右边列冻结
-        if (this.options.rightFixedColumns) {
-            for (var i = 0; i < this.options.rightFixedNumber; i++) {
-                $rtr.append($rths.eq($rths.length - this.options.rightFixedNumber + i).clone());
-            }
-            this.$rightfixedHeaderColumns.html('').append($rtr);
+        if ($target.is('input')) {
+          $coreTh.find('input').val(value)
+        } else if ($target.is('select')) {
+          const $select = $coreTh.find('select')
+
+          $select.find('option[selected]').removeAttr('selected')
+          $select.find(`option[value="${value}"]`).attr('selected', true)
         }
 
-        //左边列冻结
-        if (this.options.fixedColumns) {
-            for (var i = 0; i < this.options.fixedNumber; i++) {
-                $ltr.append($lths.eq(i).clone(true));
-            }
-            this.$fixedHeaderColumns.html('').append($ltr);
-            this.$selectAll = $ltr.find('[name="btSelectAll"]');
-            this.$selectAll.on('click', function () {
-            	var checked = $(this).prop('checked');
-            	$(".left-fixed-body-columns input[name=btSelectItem]").filter(':enabled').prop('checked', checked);
-            	$('.fixed-table-body input[name=btSelectItem]').closest('tr').removeClass('selected');
-            });
-        }
-    };
+        this.triggerSearch()
+      })
+    }
+  }
 
-    BootstrapTable.prototype.initBody = function () {
-        _initBody.apply(this, Array.prototype.slice.apply(arguments));
+  renderStickyHeader () {
+    if (!this.options.stickyHeader) {
+      return
+    }
 
-        if (!this.options.fixedColumns && !this.options.rightFixedColumns) {
-            return;
-        }
+    this.$stickyContainer = this.$container.find('.sticky-header-container')
+    super.renderStickyHeader()
 
-        var that = this;
-        if (this.options.fixedColumns) {
-            this.$fixedBodyColumns.html('');
-            this.$body.find('> tr[data-index]').each(function () {
-                var $tr = $(this).clone(true),
-                    $tds = $tr.clone(true).find('td');
+    if (this.needFixedColumns && this.options.fixedNumber) {
+      this.$fixedColumns.css('z-index', 101)
+        .find('.sticky-header-container')
+        .css('right', '')
+        .width(this.$fixedColumns.outerWidth())
+    }
 
-                $tr.html('');
-                for (var i = 0; i < that.options.fixedNumber; i++) {
-                    $tr.append($tds.eq(i).clone(true));
-                }
-                that.$fixedBodyColumns.append($tr);
-            });
-        }
-        if (this.options.rightFixedColumns) {
-            this.$rightfixedBodyColumns.html('');
-            this.$body.find('> tr[data-index]').each(function () {
-                var $tr = $(this).clone(),
-                    $tds = $tr.clone().find('td');
+    if (this.needFixedColumns && this.options.fixedRightNumber) {
+      const $stickyHeaderContainerRight = this.$fixedColumnsRight.find('.sticky-header-container')
 
-                $tr.html('');
-                for (var i = 0; i < that.options.rightFixedNumber; i++) {
-                    var indexTd = $tds.length - that.options.rightFixedNumber + i;
-                    var oldTd = $tds.eq(indexTd);
-                    var fixTd = oldTd.clone();
-                    var buttons = fixTd.find('button');
-                    //事件转移：冻结列里面的事件转移到实际按钮的事件
-                    buttons.each(function (key, item) {
-                        $(item).click(function () {
-                            that.$body.find("tr[data-index=" + $tr.attr('data-index') + "] td:eq(" + indexTd + ") button:eq(" + key + ")").click();
-                        });
-                    });
-                    $tr.append(fixTd);
-                }
-                that.$rightfixedBodyColumns.append($tr);
-            });
-        }
-    };
+      this.$fixedColumnsRight.css('z-index', 101)
+      $stickyHeaderContainerRight.css('left', '')
+        .scrollLeft($stickyHeaderContainerRight.find('.table').outerWidth())
+        .width(this.$fixedColumnsRight.outerWidth())
+    }
+  }
 
-    BootstrapTable.prototype.resetView = function () {
-        _resetView.apply(this, Array.prototype.slice.apply(arguments));
+  matchPositionX () {
+    if (!this.options.stickyHeader) {
+      return
+    }
 
-        if (!this.options.fixedColumns && !this.options.rightFixedColumns) {
-            return;
-        }
-
-        clearTimeout(this.timeoutHeaderColumns_);
-        this.timeoutHeaderColumns_ = setTimeout($.proxy(this.fitHeaderColumns, this), this.$el.is(':hidden') ? 100 : 0);
-
-        clearTimeout(this.timeoutBodyColumns_);
-        this.timeoutBodyColumns_ = setTimeout($.proxy(this.fitBodyColumns, this), this.$el.is(':hidden') ? 100 : 0);
-    };
-
-    BootstrapTable.prototype.fitHeaderColumns = function () {
-        var that = this,
-            visibleFields = this.getVisibleFields(),
-            headerWidth = 0;
-        if (that.options.fixedColumns) {
-            this.$body.find('tr:first-child:not(.no-records-found) > *').each(function (i) {
-                var $this = $(this),
-                    index = i;
-
-                if (i >= that.options.fixedNumber) {
-                    return false;
-                }
-
-                if (that.options.detailView && !that.options.cardView) {
-                    index = i - 1;
-                }
-                that.$fixedHeader.find('thead th[data-field="' + visibleFields[index] + '"]')
-                    .find('.fht-cell').width($this.innerWidth());
-                headerWidth += $this.outerWidth();
-            });
-            this.$fixedHeader.width(headerWidth + 2).show();
-        }
-        if (that.options.rightFixedColumns) {
-            this.$body.find('tr:first-child:not(.no-records-found) > *').each(function (i) {
-                var $this = $(this),
-                    index = i;
-
-                if (i >= visibleFields.length - that.options.rightFixedNumber) {
-                    return false;
-
-
-                    if (that.options.detailView && !that.options.cardView) {
-                       index = i - 1;
-                    }
-                    that.$rightfixedBody.find('thead th[data-field="' + visibleFields[index] + '"]')
-                        .find('.fht-cell').width($this.innerWidth() - 1);
-                    headerWidth += $this.outerWidth();
-                }
-            });
-            this.$rightfixedBody.width(headerWidth - 1).show();
-        }
-    };
-
-    BootstrapTable.prototype.fitBodyColumns = function () {
-        var that = this,
-            top = -(parseInt(this.$el.css('margin-top'))),
-            height = this.$tableBody.height();
-
-        if (that.options.fixedColumns) {
-            if (!this.$body.find('> tr[data-index]').length) {
-                this.$fixedBody.hide();
-                return;
-            }
-            
-            if (!this.options.height) {
-                top = this.$fixedHeader.height()- 1;
-                height = height - top;
-            }
-
-            this.$fixedBody.css({
-                width: this.$fixedHeader.width(),
-                height: height,
-                top: top + 1
-            }).show();
-
-            this.$body.find('> tr').each(function (i) {
-            	that.$fixedBody.find('tr:eq(' + i + ')').height($(this).height() - 0.5);
-                var thattds = this;
-                that.$fixedBody.find('tr:eq(' + i + ')').find('td').each(function (j) {
-                    $(this).width($($(thattds).find('td')[j]).width() + 1);
-                });
-            });
-            
-            $("#" + table.options.id).on("check.bs.table uncheck.bs.table", function (e, rows, $element) {
-        	    var index= $element.data('index');
-                $(this).find('.bs-checkbox').find('input[data-index="' + index + '"]').prop("checked", true);
-                var selectFixedItem = $('.left-fixed-body-columns input[name=btSelectItem]');
-                var checkAll = selectFixedItem.filter(':enabled').length &&
-                    selectFixedItem.filter(':enabled').length ===
-                	selectFixedItem.filter(':enabled').filter(':checked').length;
-                $(".left-fixed-table-columns input[name=btSelectAll]").prop('checked', checkAll);
-                $('.fixed-table-body input[name=btSelectItem]').closest('tr').removeClass('selected');
-        	});
-            
-            $("#" + table.options.id).off('click', '.fixed-table-body').on('click', '.th-inner', function (event) {
-            	$.each(that.$fixedHeader.find('th'), function (i, th) {
-        			$(th).find('.sortable').removeClass('desc asc').addClass('both');
-        		});
-            });
-
-            // events
-            this.$fixedHeader.off('click', '.th-inner').on('click', '.th-inner', function (event) {
-            	var target = $(this);
-            	var $this = event.type === "keypress" ? $(event.currentTarget) : $(event.currentTarget).parent(), $this_ = that.$header.find('th').eq($this.index());
-            	
-            	var sortOrder = "";
-            	if (table.options.sortName === $this.data('field')) {
-            		sortOrder = table.options.sortOrder === 'asc' ? 'desc' : 'asc';
-                } else {
-                    sortOrder = $this.data('order') === 'asc' ? 'desc' : 'asc';
-                }
-            	table.options.sortOrder = sortOrder;
-            	var sortName = $this.data('sortName') ? $this.data('sortName') : $this.data('field');
-            	if (target.parent().data().sortable) {
-            		$.each(that.$fixedHeader.find('th'), function (i, th) {
-            			$(th).find('.sortable').removeClass('desc asc').addClass(($(th).data('field') === sortName || $(th).data('sortName') === sortName) ? sortOrder : 'both');
-            		});
-                }
-            });
-            
-            this.$tableBody.on('scroll', function () {
-                that.$fixedBody.find('table').css('top', -$(this).scrollTop());
-            });
-            this.$body.find('> tr[data-index]').off('hover').hover(function () {
-                var index = $(this).data('index');
-                that.$fixedBody.find('tr[data-index="' + index + '"]').addClass('hover');
-            }, function () {
-                var index = $(this).data('index');
-                that.$fixedBody.find('tr[data-index="' + index + '"]').removeClass('hover');
-            });
-            this.$fixedBody.find('tr[data-index]').off('hover').hover(function () {
-                var index = $(this).data('index');
-                that.$body.find('tr[data-index="' + index + '"]').addClass('hover');
-            }, function () {
-                var index = $(this).data('index');
-                that.$body.find('> tr[data-index="' + index + '"]').removeClass('hover');
-            });
-        }
-        if (that.options.rightFixedColumns) {
-            if (!this.$body.find('> tr[data-index]').length) {
-                this.$rightfixedBody.hide();
-                return;
-            }
-
-            this.$body.find('> tr').each(function (i) {
-                that.$rightfixedBody.find('tbody tr:eq(' + i + ')').height($(this).height());
-            });
-
-            //// events
-            this.$tableBody.on('scroll', function () {
-                that.$rightfixedBody.find('table').css('top', -$(this).scrollTop());
-            });
-            this.$body.find('> tr[data-index]').off('hover').hover(function () {
-                var index = $(this).data('index');
-                that.$rightfixedBody.find('tr[data-index="' + index + '"]').addClass('hover');
-            }, function () {
-                var index = $(this).data('index');
-                that.$rightfixedBody.find('tr[data-index="' + index + '"]').removeClass('hover');
-            });
-            this.$rightfixedBody.find('tr[data-index]').off('hover').hover(function () {
-                var index = $(this).data('index');
-                that.$body.find('tr[data-index="' + index + '"]').addClass('hover');
-            }, function () {
-                var index = $(this).data('index');
-                that.$body.find('> tr[data-index="' + index + '"]').removeClass('hover');
-            });
-        }
-    };
-
-})(jQuery);
+    this.$stickyContainer.eq(0).scrollLeft(this.$tableBody.scrollLeft())
+  }
+}

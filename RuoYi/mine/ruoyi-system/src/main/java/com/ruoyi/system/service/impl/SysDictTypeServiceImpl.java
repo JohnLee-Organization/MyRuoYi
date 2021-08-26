@@ -8,15 +8,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.ruoyi.common.constant.UserConstants;
 import com.ruoyi.common.core.domain.Ztree;
+import com.ruoyi.common.core.domain.entity.SysDictData;
+import com.ruoyi.common.core.domain.entity.SysDictType;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.exception.BusinessException;
+import com.ruoyi.common.utils.DictUtils;
 import com.ruoyi.common.utils.StringUtils;
-import com.ruoyi.system.domain.SysDictData;
-import com.ruoyi.system.domain.SysDictType;
 import com.ruoyi.system.mapper.SysDictDataMapper;
 import com.ruoyi.system.mapper.SysDictTypeMapper;
 import com.ruoyi.system.service.ISysDictTypeService;
-import com.ruoyi.system.utils.DictUtils;
 
 /**
  * 字典 业务层处理
@@ -38,12 +38,7 @@ public class SysDictTypeServiceImpl implements ISysDictTypeService
     @PostConstruct
     public void init()
     {
-        List<SysDictType> dictTypeList = dictTypeMapper.selectDictTypeAll();
-        for (SysDictType dictType : dictTypeList)
-        {
-            List<SysDictData> dictDatas = dictDataMapper.selectDictDataByType(dictType.getDictType());
-            DictUtils.setDictCache(dictType.getDictType(), dictDatas);
-        }
+        loadingDictCache();
     }
 
     /**
@@ -79,12 +74,12 @@ public class SysDictTypeServiceImpl implements ISysDictTypeService
     public List<SysDictData> selectDictDataByType(String dictType)
     {
         List<SysDictData> dictDatas = DictUtils.getDictCache(dictType);
-        if (StringUtils.isNotNull(dictDatas))
+        if (StringUtils.isNotEmpty(dictDatas))
         {
             return dictDatas;
         }
         dictDatas = dictDataMapper.selectDictDataByType(dictType);
-        if (StringUtils.isNotNull(dictDatas))
+        if (StringUtils.isNotEmpty(dictDatas))
         {
             DictUtils.setDictCache(dictType, dictDatas);
             return dictDatas;
@@ -123,7 +118,7 @@ public class SysDictTypeServiceImpl implements ISysDictTypeService
      * @return 结果
      */
     @Override
-    public int deleteDictTypeByIds(String ids)
+    public void deleteDictTypeByIds(String ids)
     {
         Long[] dictIds = Convert.toLongArray(ids);
         for (Long dictId : dictIds)
@@ -133,37 +128,54 @@ public class SysDictTypeServiceImpl implements ISysDictTypeService
             {
                 throw new BusinessException(String.format("%1$s已分配,不能删除", dictType.getDictName()));
             }
+            dictTypeMapper.deleteDictTypeById(dictId);
+            DictUtils.removeDictCache(dictType.getDictType());
         }
-        int count = dictTypeMapper.deleteDictTypeByIds(dictIds);
-        if (count > 0)
-        {
-            DictUtils.clearDictCache();
-        }
-        return count;
     }
 
     /**
-     * 清空缓存数据
+     * 加载字典缓存数据
      */
-    @Override
-    public void clearCache()
+    public void loadingDictCache()
+    {
+        List<SysDictType> dictTypeList = dictTypeMapper.selectDictTypeAll();
+        for (SysDictType dict : dictTypeList)
+        {
+            List<SysDictData> dictDatas = dictDataMapper.selectDictDataByType(dict.getDictType());
+            DictUtils.setDictCache(dict.getDictType(), dictDatas);
+        }
+    }
+
+    /**
+     * 清空字典缓存数据
+     */
+    public void clearDictCache()
     {
         DictUtils.clearDictCache();
     }
 
     /**
+     * 重置字典缓存数据
+     */
+    public void resetDictCache()
+    {
+        clearDictCache();
+        loadingDictCache();
+    }
+
+    /**
      * 新增保存字典类型信息
      * 
-     * @param dictType 字典类型信息
+     * @param dict 字典类型信息
      * @return 结果
      */
     @Override
-    public int insertDictType(SysDictType dictType)
+    public int insertDictType(SysDictType dict)
     {
-        int row = dictTypeMapper.insertDictType(dictType);
+        int row = dictTypeMapper.insertDictType(dict);
         if (row > 0)
         {
-            DictUtils.clearDictCache();
+            DictUtils.setDictCache(dict.getDictType(), null);
         }
         return row;
     }
@@ -171,19 +183,20 @@ public class SysDictTypeServiceImpl implements ISysDictTypeService
     /**
      * 修改保存字典类型信息
      * 
-     * @param dictType 字典类型信息
+     * @param dict 字典类型信息
      * @return 结果
      */
     @Override
     @Transactional
-    public int updateDictType(SysDictType dictType)
+    public int updateDictType(SysDictType dict)
     {
-        SysDictType oldDict = dictTypeMapper.selectDictTypeById(dictType.getDictId());
-        dictDataMapper.updateDictDataType(oldDict.getDictType(), dictType.getDictType());
-        int row = dictTypeMapper.updateDictType(dictType);
+        SysDictType oldDict = dictTypeMapper.selectDictTypeById(dict.getDictId());
+        dictDataMapper.updateDictDataType(oldDict.getDictType(), dict.getDictType());
+        int row = dictTypeMapper.updateDictType(dict);
         if (row > 0)
         {
-            DictUtils.clearDictCache();
+            List<SysDictData> dictDatas = dictDataMapper.selectDictDataByType(dict.getDictType());
+            DictUtils.setDictCache(dict.getDictType(), dictDatas);
         }
         return row;
     }

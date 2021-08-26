@@ -2,7 +2,7 @@ package com.ruoyi.system.mapper;
 
 import java.util.List;
 import org.apache.ibatis.annotations.Param;
-import com.ruoyi.system.domain.SysDept;
+import com.ruoyi.common.core.domain.entity.SysDept;
 
 /**
  * 部门管理 数据层
@@ -93,11 +93,11 @@ public interface SysDeptMapper
     public List<String> selectRoleDeptTree(Long roleId);
 
     /**
-     * 修改所在部门的父级部门状态
+     * 修改所在部门正常状态
      * 
-     * @param dept 部门
+     * @param deptIds 部门ID组
      */
-    public void updateDeptStatus(SysDept dept);
+    public void updateDeptStatusNormal(Long[] deptIds);
 
     /**
      * 根据ID查询所有子部门

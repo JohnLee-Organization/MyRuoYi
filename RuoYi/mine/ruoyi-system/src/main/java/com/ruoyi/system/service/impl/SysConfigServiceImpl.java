@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import com.ruoyi.common.constant.Constants;
 import com.ruoyi.common.constant.UserConstants;
 import com.ruoyi.common.core.text.Convert;
+import com.ruoyi.common.exception.BusinessException;
 import com.ruoyi.common.utils.CacheUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.system.domain.SysConfig;
@@ -30,11 +31,7 @@ public class SysConfigServiceImpl implements ISysConfigService
     @PostConstruct
     public void init()
     {
-        List<SysConfig> configsList = configMapper.selectConfigList(new SysConfig());
-        for (SysConfig config : configsList)
-        {
-            CacheUtils.put(getCacheName(), getCacheKey(config.getConfigKey()), config.getConfigValue());
-        }
+        loadingConfigCache();
     }
 
     /**
@@ -129,24 +126,51 @@ public class SysConfigServiceImpl implements ISysConfigService
      * @return 结果
      */
     @Override
-    public int deleteConfigByIds(String ids)
+    public void deleteConfigByIds(String ids)
     {
-        int count = configMapper.deleteConfigByIds(Convert.toStrArray(ids));
-        if (count > 0)
+        Long[] configIds = Convert.toLongArray(ids);
+        for (Long configId : configIds)
         {
-
-            CacheUtils.removeAll(getCacheName());
+            SysConfig config = selectConfigById(configId);
+            if (StringUtils.equals(UserConstants.YES, config.getConfigType()))
+            {
+                throw new BusinessException(String.format("内置参数【%1$s】不能删除 ", config.getConfigKey()));
+            }
+            configMapper.deleteConfigById(configId);
+            CacheUtils.remove(getCacheName(), getCacheKey(config.getConfigKey()));
         }
-        return count;
     }
 
     /**
-     * 清空缓存数据
+     * 加载参数缓存数据
      */
     @Override
-    public void clearCache()
+    public void loadingConfigCache()
+    {
+        List<SysConfig> configsList = configMapper.selectConfigList(new SysConfig());
+        for (SysConfig config : configsList)
+        {
+            CacheUtils.put(getCacheName(), getCacheKey(config.getConfigKey()), config.getConfigValue());
+        }
+    }
+
+    /**
+     * 清空参数缓存数据
+     */
+    @Override
+    public void clearConfigCache()
     {
         CacheUtils.removeAll(getCacheName());
+    }
+
+    /**
+     * 重置参数缓存数据
+     */
+    @Override
+    public void resetConfigCache()
+    {
+        clearConfigCache();
+        loadingConfigCache();
     }
 
     /**

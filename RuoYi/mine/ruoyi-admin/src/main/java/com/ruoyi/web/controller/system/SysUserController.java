@@ -1,6 +1,7 @@
 package com.ruoyi.web.controller.system;
 
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -16,13 +17,14 @@ import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.constant.UserConstants;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
+import com.ruoyi.common.core.domain.entity.SysRole;
+import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
+import com.ruoyi.common.utils.ShiroUtils;
+import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.framework.shiro.service.SysPasswordService;
-import com.ruoyi.framework.util.ShiroUtils;
-import com.ruoyi.system.domain.SysUser;
-import com.ruoyi.system.domain.SysUserRole;
 import com.ruoyi.system.service.ISysPostService;
 import com.ruoyi.system.service.ISysRoleService;
 import com.ruoyi.system.service.ISysUserService;
@@ -106,7 +108,7 @@ public class SysUserController extends BaseController
     @GetMapping("/add")
     public String add(ModelMap mmap)
     {
-        mmap.put("roles", roleService.selectRoleAll());
+        mmap.put("roles", roleService.selectRoleAll().stream().filter(r -> !r.isAdmin()).collect(Collectors.toList()));
         mmap.put("posts", postService.selectPostAll());
         return prefix + "/add";
     }
@@ -124,11 +126,13 @@ public class SysUserController extends BaseController
         {
             return error("新增用户'" + user.getLoginName() + "'失败，登录账号已存在");
         }
-        else if (UserConstants.USER_PHONE_NOT_UNIQUE.equals(userService.checkPhoneUnique(user)))
+        else if (StringUtils.isNotEmpty(user.getPhonenumber())
+                && UserConstants.USER_PHONE_NOT_UNIQUE.equals(userService.checkPhoneUnique(user)))
         {
             return error("新增用户'" + user.getLoginName() + "'失败，手机号码已存在");
         }
-        else if (UserConstants.USER_EMAIL_NOT_UNIQUE.equals(userService.checkEmailUnique(user)))
+        else if (StringUtils.isNotEmpty(user.getEmail())
+                && UserConstants.USER_EMAIL_NOT_UNIQUE.equals(userService.checkEmailUnique(user)))
         {
             return error("新增用户'" + user.getLoginName() + "'失败，邮箱账号已存在");
         }
@@ -144,8 +148,9 @@ public class SysUserController extends BaseController
     @GetMapping("/edit/{userId}")
     public String edit(@PathVariable("userId") Long userId, ModelMap mmap)
     {
+        List<SysRole> roles = roleService.selectRolesByUserId(userId);
         mmap.put("user", userService.selectUserById(userId));
-        mmap.put("roles", roleService.selectRolesByUserId(userId));
+        mmap.put("roles", SysUser.isAdmin(userId) ? roles : roles.stream().filter(r -> !r.isAdmin()).collect(Collectors.toList()));
         mmap.put("posts", postService.selectPostsByUserId(userId));
         return prefix + "/edit";
     }
@@ -160,11 +165,13 @@ public class SysUserController extends BaseController
     public AjaxResult editSave(@Validated SysUser user)
     {
         userService.checkUserAllowed(user);
-        if (UserConstants.USER_PHONE_NOT_UNIQUE.equals(userService.checkPhoneUnique(user)))
+        if (StringUtils.isNotEmpty(user.getPhonenumber())
+                && UserConstants.USER_PHONE_NOT_UNIQUE.equals(userService.checkPhoneUnique(user)))
         {
             return error("修改用户'" + user.getLoginName() + "'失败，手机号码已存在");
         }
-        else if (UserConstants.USER_EMAIL_NOT_UNIQUE.equals(userService.checkEmailUnique(user)))
+        else if (StringUtils.isNotEmpty(user.getEmail())
+                && UserConstants.USER_EMAIL_NOT_UNIQUE.equals(userService.checkEmailUnique(user)))
         {
             return error("修改用户'" + user.getLoginName() + "'失败，邮箱账号已存在");
         }
@@ -173,7 +180,6 @@ public class SysUserController extends BaseController
     }
 
     @RequiresPermissions("system:user:resetPwd")
-    @Log(title = "重置密码", businessType = BusinessType.UPDATE)
     @GetMapping("/resetPwd/{userId}")
     public String resetPwd(@PathVariable("userId") Long userId, ModelMap mmap)
     {
@@ -209,9 +215,9 @@ public class SysUserController extends BaseController
     {
         SysUser user = userService.selectUserById(userId);
         // 获取用户所属的角色列表
-        List<SysUserRole> userRoles = userService.selectUserRoleByUserId(userId);
+        List<SysRole> roles = roleService.selectRolesByUserId(userId);
         mmap.put("user", user);
-        mmap.put("userRoles", userRoles);
+        mmap.put("roles", SysUser.isAdmin(userId) ? roles : roles.stream().filter(r -> !r.isAdmin()).collect(Collectors.toList()));
         return prefix + "/authRole";
     }
 
@@ -234,14 +240,7 @@ public class SysUserController extends BaseController
     @ResponseBody
     public AjaxResult remove(String ids)
     {
-        try
-        {
-            return toAjax(userService.deleteUserByIds(ids));
-        }
-        catch (Exception e)
-        {
-            return error(e.getMessage());
-        }
+        return toAjax(userService.deleteUserByIds(ids));
     }
 
     /**

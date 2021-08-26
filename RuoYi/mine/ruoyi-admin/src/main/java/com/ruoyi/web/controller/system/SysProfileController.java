@@ -12,15 +12,17 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 import com.ruoyi.common.annotation.Log;
-import com.ruoyi.common.config.Global;
+import com.ruoyi.common.config.RuoYiConfig;
+import com.ruoyi.common.constant.UserConstants;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
+import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.enums.BusinessType;
+import com.ruoyi.common.utils.DateUtils;
+import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.file.FileUploadUtils;
 import com.ruoyi.framework.shiro.service.SysPasswordService;
-import com.ruoyi.framework.util.ShiroUtils;
-import com.ruoyi.system.domain.SysUser;
 import com.ruoyi.system.service.ISysUserService;
 
 /**
@@ -81,21 +83,23 @@ public class SysProfileController extends BaseController
     public AjaxResult resetPwd(String oldPassword, String newPassword)
     {
         SysUser user = ShiroUtils.getSysUser();
-        if (StringUtils.isNotEmpty(newPassword) && passwordService.matches(user, oldPassword))
-        {
-            user.setSalt(ShiroUtils.randomSalt());
-            user.setPassword(passwordService.encryptPassword(user.getLoginName(), newPassword, user.getSalt()));
-            if (userService.resetUserPwd(user) > 0)
-            {
-                ShiroUtils.setSysUser(userService.selectUserById(user.getUserId()));
-                return success();
-            }
-            return error();
-        }
-        else
+        if (!passwordService.matches(user, oldPassword))
         {
             return error("修改密码失败，旧密码错误");
         }
+        if (passwordService.matches(user, newPassword))
+        {
+            return error("新密码不能与旧密码相同");
+        }
+        user.setSalt(ShiroUtils.randomSalt());
+        user.setPassword(passwordService.encryptPassword(user.getLoginName(), newPassword, user.getSalt()));
+        user.setPwdUpdateDate(DateUtils.getNowDate());
+        if (userService.resetUserPwd(user) > 0)
+        {
+            ShiroUtils.setSysUser(userService.selectUserById(user.getUserId()));
+            return success();
+        }
+        return error("修改密码异常，请联系管理员");
     }
 
     /**
@@ -133,6 +137,16 @@ public class SysProfileController extends BaseController
         currentUser.setEmail(user.getEmail());
         currentUser.setPhonenumber(user.getPhonenumber());
         currentUser.setSex(user.getSex());
+        if (StringUtils.isNotEmpty(user.getPhonenumber())
+                && UserConstants.USER_PHONE_NOT_UNIQUE.equals(userService.checkPhoneUnique(currentUser)))
+        {
+            return error("修改用户'" + currentUser.getLoginName() + "'失败，手机号码已存在");
+        }
+        else if (StringUtils.isNotEmpty(user.getEmail())
+                && UserConstants.USER_EMAIL_NOT_UNIQUE.equals(userService.checkEmailUnique(currentUser)))
+        {
+            return error("修改用户'" + currentUser.getLoginName() + "'失败，邮箱账号已存在");
+        }
         if (userService.updateUserInfo(currentUser) > 0)
         {
             ShiroUtils.setSysUser(userService.selectUserById(currentUser.getUserId()));
@@ -154,7 +168,7 @@ public class SysProfileController extends BaseController
         {
             if (!file.isEmpty())
             {
-                String avatar = FileUploadUtils.upload(Global.getAvatarPath(), file);
+                String avatar = FileUploadUtils.upload(RuoYiConfig.getAvatarPath(), file);
                 currentUser.setAvatar(avatar);
                 if (userService.updateUserInfo(currentUser) > 0)
                 {

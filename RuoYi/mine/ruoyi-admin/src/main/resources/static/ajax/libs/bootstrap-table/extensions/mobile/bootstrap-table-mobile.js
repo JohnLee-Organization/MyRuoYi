@@ -1,92 +1,124 @@
 /**
- * 基于bootstrap-table-mobile修改
- * 修正部分iPhone手机不显示卡片视图
- * Copyright (c) 2019 ruoyi
+ * @author: Dennis Hernández
+ * @webSite: http://djhvscf.github.io/Blog
+ * @update zhixin wen <wenzhixin2010@gmail.com>
  */
-!function ($) {
-    
-    'use strict';
-    
-    var resetView = function (that) {
-        if (that.options.height || that.options.showFooter) {
-            setTimeout(that.resetView(), 1);
+
+const debounce = (func, wait) => {
+  let timeout = 0
+
+  return (...args) => {
+    const later = () => {
+      timeout = 0
+      func(...args)
+    }
+
+    clearTimeout(timeout)
+    timeout = setTimeout(later, wait)
+  }
+}
+
+$.extend($.fn.bootstrapTable.defaults, {
+  mobileResponsive: false,
+  minWidth: 562,
+  minHeight: undefined,
+  heightThreshold: 100, // just slightly larger than mobile chrome's auto-hiding toolbar
+  checkOnInit: true,
+  columnsHidden: []
+})
+
+$.BootstrapTable = class extends $.BootstrapTable {
+  init (...args) {
+    super.init(...args)
+
+    if (!this.options.mobileResponsive || !this.options.minWidth) {
+      return
+    }
+
+    if (this.options.minWidth < 100 && this.options.resizable) {
+      console.warn('The minWidth when the resizable extension is active should be greater or equal than 100')
+      this.options.minWidth = 100
+    }
+
+    let old = {
+      width: $(window).width(),
+      height: $(window).height()
+    }
+
+    $(window).on('resize orientationchange', debounce(() => {
+      // reset view if height has only changed by at least the threshold.
+      const width = $(window).width()
+      const height = $(window).height()
+      const $activeElement = $(document.activeElement)
+
+      if ($activeElement.length && ['INPUT', 'SELECT', 'TEXTAREA'].includes($activeElement.prop('nodeName'))) {
+        return
+      }
+
+      if (
+        Math.abs(old.height - height) > this.options.heightThreshold ||
+        old.width !== width
+      ) {
+        this.changeView(width, height)
+        old = {
+          width,
+          height
         }
-    };
-    
-    // 判断是否 iphone
-    var isIPhone = function () {
-	    var browserName = navigator.userAgent.toLowerCase();
-	    return /(iPhone|iPad|iPod|iOS)/i.test(browserName);
-	};
+      }
+    }, 200))
 
-    var changeView = function (that, width, height) {
-        if (that.options.minHeight) {
-            if (checkValuesLessEqual(width, that.options.minWidth) && checkValuesLessEqual(height, that.options.minHeight)) {
-                conditionCardView(that);
-            } else if (checkValuesGreater(width, that.options.minWidth) && checkValuesGreater(height, that.options.minHeight)) {
-                conditionFullView(that);
-            }
-        } else {
-            if (checkValuesLessEqual(width, that.options.minWidth) || isIPhone()) {
-                conditionCardView(that);
-            } else if (checkValuesGreater(width, that.options.minWidth)) {
-                conditionFullView(that);
-            }
+    if (this.options.checkOnInit) {
+      const width = $(window).width()
+      const height = $(window).height()
+
+      this.changeView(width, height)
+      old = {
+        width,
+        height
+      }
+    }
+  }
+
+  conditionCardView () {
+    this.changeTableView(false)
+    this.showHideColumns(false)
+  }
+
+  conditionFullView () {
+    this.changeTableView(true)
+    this.showHideColumns(true)
+  }
+
+  changeTableView (cardViewState) {
+    this.options.cardView = cardViewState
+    this.toggleView()
+  }
+
+  showHideColumns (checked) {
+    if (this.options.columnsHidden.length > 0) {
+      this.columns.forEach(column => {
+        if (this.options.columnsHidden.includes(column.field)) {
+          if (column.visible !== checked) {
+            this._toggleColumn(this.fieldsColumnsIndex[column.field], checked, true)
+          }
         }
+      })
+    }
+  }
 
-        resetView(that);
-    };
+  changeView (width, height) {
+    if (this.options.minHeight) {
+      if ((width <= this.options.minWidth) && (height <= this.options.minHeight)) {
+        this.conditionCardView()
+      } else if ((width > this.options.minWidth) && (height > this.options.minHeight)) {
+        this.conditionFullView()
+      }
+    } else if (width <= this.options.minWidth) {
+      this.conditionCardView()
+    } else if (width > this.options.minWidth) {
+      this.conditionFullView()
+    }
 
-    var checkValuesLessEqual = function (currentValue, targetValue) {
-        return currentValue <= targetValue;
-    };
-
-    var checkValuesGreater = function (currentValue, targetValue) {
-        return currentValue > targetValue;
-    };
-
-    var conditionCardView = function (that) {
-        changeTableView(that, false);
-    };
-
-    var conditionFullView = function (that) {
-        changeTableView(that, true);
-    };
-
-    var changeTableView = function (that, cardViewState) {
-        that.options.cardView = cardViewState;
-        that.toggleView();
-    };
-
-    $.extend($.fn.bootstrapTable.defaults, {
-        mobileResponsive: false,
-        minWidth: 562,
-        minHeight: undefined,
-        checkOnInit: true,
-        toggled: false
-    });
-
-    var BootstrapTable = $.fn.bootstrapTable.Constructor,
-        _init = BootstrapTable.prototype.init;
-
-    BootstrapTable.prototype.init = function () {
-        _init.apply(this, Array.prototype.slice.apply(arguments));
-
-        if (!this.options.mobileResponsive) {
-            return;
-        }
-
-        if (!this.options.minWidth) {
-            return;
-        }
-
-        var that = this;
-        $(window).resize(function () {
-            changeView(that, $(this).width(), $(this).height())
-        });
-
-        if (this.options.checkOnInit) {
-            changeView(this, $(window).width(), $(window).height());
-        }
-    };
-}(jQuery);
+    this.resetView()
+  }
+}

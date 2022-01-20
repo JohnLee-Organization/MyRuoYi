@@ -15,10 +15,12 @@
         framework框架核心
     </description>
 
+    <name>my ruoyi 4.6.2 [framework]</name>
+
     <dependencies>
 
-         <!-- SpringBoot Web容器 -->
-         <dependency>
+        <!-- SpringBoot Web容器 -->
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>

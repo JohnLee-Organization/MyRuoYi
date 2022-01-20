@@ -15,6 +15,8 @@
         common通用工具
     </description>
 
+    <name>ruoyi vue 3.6.0 [common]</name>
+
     <dependencies>
 
         <!-- Spring框架基本的核心工具 -->
@@ -52,7 +54,7 @@
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
         </dependency>
-  
+
         <!-- JSON工具类 -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>

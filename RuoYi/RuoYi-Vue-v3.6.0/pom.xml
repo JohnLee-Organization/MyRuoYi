@@ -237,10 +237,7 @@
         <repository>
             <id>public</id>
             <name>aliyun nexus</name>
-            <url>http://nexus.lizhaoweb.net/content/groups/maven-public/</url>
-            <releases>
-                <enabled>true</enabled>
-            </releases>
+            <url>http://nexus.lizhaoweb.net/content/groups/public/</url>
         </repository>
     </repositories>
 
@@ -248,13 +245,7 @@
         <pluginRepository>
             <id>public</id>
             <name>aliyun nexus</name>
-            <url>http://nexus.lizhaoweb.net/content/groups/maven-public/</url>
-            <releases>
-                <enabled>true</enabled>
-            </releases>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
+            <url>http://nexus.lizhaoweb.net/content/groups/public/</url>
         </pluginRepository>
     </pluginRepositories>
 

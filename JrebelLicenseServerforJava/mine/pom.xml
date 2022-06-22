@@ -100,13 +100,7 @@
         <repository>
             <id>public</id>
             <name>nexus maven</name>
-            <url>http://nexus.lizhaoweb.net/content/groups/maven-public/</url>
-            <releases>
-                <enabled>true</enabled>
-            </releases>
-            <snapshots>
-                <enabled>true</enabled>
-            </snapshots>
+            <url>http://nexus.lizhaoweb.net/content/groups/public/</url>
         </repository>
     </repositories>
 

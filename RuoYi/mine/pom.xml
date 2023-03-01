@@ -249,7 +249,7 @@
     <repositories>
         <repository>
             <id>public</id>
-            <name>nexus maven</name>
+            <name>Nexus Maven Public Repository</name>
             <url>http://nexus.lizhaoweb.net/content/groups/public/</url>
         </repository>
     </repositories>
@@ -257,11 +257,12 @@
     <pluginRepositories>
         <pluginRepository>
             <id>public</id>
-            <name>nexus maven</name>
-            <url>http://nexus.lizhaoweb.net/content/groups/public/</url>
+            <name>Nexus Maven Public-Plugin Repository</name>
+            <url>http://nexus.lizhaoweb.net/content/groups/public-plugin/</url>
         </pluginRepository>
     </pluginRepositories>
 
+    <!--上传到私服-->
     <distributionManagement>
         <repository>
             <id>nexus-releases</id>

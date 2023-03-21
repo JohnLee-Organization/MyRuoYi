@@ -14,5 +14,6 @@
         <module>RuoYi/mine</module>
         <module>RuoYi/RuoYi-4.2.0</module>
         <module>RuoYi/RuoYi-Vue-v3.6.0</module>
+        <module>RuoYi/RuoYi-Vue-v3.8.5</module>
     </modules>
 </project>

@@ -28,10 +28,13 @@
 
     <modules>
         <module>JrebelLicenseServerforJava/mine</module>
-        <module>RuoYi/mine</module>
+        <module>RuoYi/mine/springboot</module>
+        <module>RuoYi/mine/springboot-vue</module>
+        <module>RuoYi/mine/springboot-cloud</module>
         <module>RuoYi/RuoYi-4.2.0</module>
         <module>RuoYi/RuoYi-v4.7.7</module>
         <module>RuoYi/RuoYi-Vue-v3.6.0</module>
         <module>RuoYi/RuoYi-Vue-v3.8.5</module>
+        <module>RuoYi/RuoYi-Cloud-v3.6.4</module>
     </modules>
 </project>

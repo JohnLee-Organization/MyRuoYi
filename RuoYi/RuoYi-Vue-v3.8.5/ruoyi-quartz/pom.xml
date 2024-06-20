@@ -11,6 +11,8 @@
 
     <artifactId>ruoyi-quartz</artifactId>
 
+    <name>ruoyi vue 3.8.5 [quartz]</name>
+
     <description>
         quartz定时任务
     </description>

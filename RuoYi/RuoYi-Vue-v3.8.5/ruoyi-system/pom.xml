@@ -11,6 +11,8 @@
 
     <artifactId>ruoyi-system</artifactId>
 
+    <name>ruoyi vue 3.8.5 [system]</name>
+
     <description>
         system系统模块
     </description>

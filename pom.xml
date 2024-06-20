@@ -9,10 +9,28 @@
 
     <packaging>pom</packaging>
 
+
+    <!--上传到私服-->
+    <distributionManagement>
+        <repository>
+            <id>nexus-releases</id>
+            <name>Nexus Release Repository</name>
+            <url>http://nexus.lizhaoweb.net/content/repositories/releases/</url>
+            <uniqueVersion>false</uniqueVersion>
+        </repository>
+        <snapshotRepository>
+            <id>nexus-snapshots</id>
+            <name>Nexus Snapshot Repository</name>
+            <url>http://nexus.lizhaoweb.net/content/repositories/snapshots/</url>
+            <uniqueVersion>false</uniqueVersion>
+        </snapshotRepository>
+    </distributionManagement>
+
     <modules>
         <module>JrebelLicenseServerforJava/mine</module>
         <module>RuoYi/mine</module>
         <module>RuoYi/RuoYi-4.2.0</module>
+        <module>RuoYi/RuoYi-v4.7.7</module>
         <module>RuoYi/RuoYi-Vue-v3.6.0</module>
         <module>RuoYi/RuoYi-Vue-v3.8.5</module>
     </modules>

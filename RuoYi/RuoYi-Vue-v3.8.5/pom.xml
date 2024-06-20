@@ -8,7 +8,7 @@
     <artifactId>ruoyi</artifactId>
     <version>3.8.5</version>
 
-    <name>ruoyi</name>
+    <name>ruoyi vue 3.8.5</name>
     <url>http://www.ruoyi.vip</url>
     <description>若依管理系统</description>
 
@@ -227,5 +227,21 @@
         </pluginRepository>
     </pluginRepositories>
     -->
+
+    <!--上传到私服-->
+    <distributionManagement>
+        <repository>
+            <id>nexus-releases</id>
+            <name>Nexus Release Repository</name>
+            <url>http://nexus.lizhaoweb.net/content/repositories/releases/</url>
+            <uniqueVersion>false</uniqueVersion>
+        </repository>
+        <snapshotRepository>
+            <id>nexus-snapshots</id>
+            <name>Nexus Snapshot Repository</name>
+            <url>http://nexus.lizhaoweb.net/content/repositories/snapshots/</url>
+            <uniqueVersion>false</uniqueVersion>
+        </snapshotRepository>
+    </distributionManagement>
 
 </project>

@@ -11,6 +11,8 @@
 
     <artifactId>ruoyi-generator</artifactId>
 
+    <name>ruoyi vue 3.8.5 [generator]</name>
+
     <description>
         generator代码生成
     </description>
